@@ -17,23 +17,23 @@
 # Library
 # ============================================================================ #
 
-from pyspark.sql.functions import col, to_date, year
+from pyspark.sql.functions import col, to_date, year, lower
 
 # ============================================================================ #
 # Create spark DataFrame
 # ============================================================================ #
 
-df = spark.createDataFrame(
+df_sample = spark.createDataFrame(
     [
         ("sue", 32),
         ("li", 3),
         ("bob", 75),
-        ("heo", 13),
+        ("heo", None),
     ],
     ["first_name", "age"],
 )
 
-df.show()
+df_sample.show()
 
 # ============================================================================ #
 # Read csv from web (5 years stocks data)
@@ -45,7 +45,7 @@ url_df = "https://raw.githubusercontent.com/plotly/datasets/refs/heads/master/al
 sc.addFile(url_df)
 filePath  = 'file://' + SparkFiles.get('all_stocks_5yr.csv')
 all_stocks_5yr = spark.read.csv(filePath, header=True, inferSchema= True)
-all_stocks_5yr.show()
+all_stocks_5yr.show(3)
 
 # ============================================================================ #
 # Read csv from web (Cities bank data)
@@ -55,7 +55,7 @@ data_file_https_url = "https://gist.githubusercontent.com/aakashjainiitg/dbb668c
 sc.addFile(data_file_https_url)
 filePath_1  = 'file://' + SparkFiles.get('cities_data_bank.csv')
 citiesDf = spark.read.csv(filePath_1, header=True, inferSchema= True)
-citiesDf.show()
+citiesDf.show(3)
 
 # ============================================================================ #
 # Read from local drive (Docker external location mount is mandatory)
@@ -63,7 +63,7 @@ citiesDf.show()
 
 csv_file_path = '/app/data/pyspark/pyspark-sample/nim_output_final.csv'
 df = spark.read.csv(csv_file_path, header=True, inferSchema=True)
-df.show()
+df.show(3)
 
 # ============================================================================ #
 # Filter
@@ -80,7 +80,7 @@ all_stocks_5yr_temp.schema
 
 ### Filter year >= 2016
 all_stocks_5yr_temp = all_stocks_5yr_temp.filter(year(col('date')) >= 2016) 
-all_stocks_5yr_temp.show()
+all_stocks_5yr_temp.show(5)
 
 ## Filter for patterns
 
@@ -99,3 +99,27 @@ df_temp.show(5)
 ### End with a pattern
 df_temp = df.filter(col('title').endswith("et")) 
 df_temp.show(5)
+
+### Doesn't contains a pattern
+df_temp = df.filter(~lower(col('opinion_strength')).like("%strong%")) 
+df_temp.show(5)
+
+### Multiple patterns filter
+df_temp = df.filter(
+    (lower(col('opinion_strength')).like("%strong%") | 
+    lower(col('opinion_strength')).like("%mil%")) & 
+    col('title').startswith("The") & 
+    col('option_opinion').contains("For")
+) 
+df_temp.show(5)
+
+## Filter NA
+
+### Doesn't contains NA
+df_temp = df_sample.filter(col("age").isNotNull()) 
+df_temp.show(5)
+
+### Contains NA
+df_temp = df_sample.filter(col("age").isNull()) 
+df_temp.show(5)
+
