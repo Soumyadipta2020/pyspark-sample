@@ -2,6 +2,10 @@
 # Docker
 # ============================================================================ #
 
+# ============================================================================ #
+# apache/spark-py
+# ============================================================================ #
+
 # Create new container - "docker run -it --name pyspark-test --mount type=bind,source=C:/Users/soumy/OneDrive/Coding,target=/app/data apache/spark-py /opt/spark/bin/pyspark"
 # Reopen the older container - "docker start -ai pyspark-test"
 
@@ -241,3 +245,32 @@ df_temp.groupBy("week start").\
         round(max("Variance"), 2).alias("Max Variance")
     ).\
     show(5)
+
+# ============================================================================ #
+# User Defined Function
+# ============================================================================ #
+from pyspark.sql.functions import udf
+from pyspark.sql.types import StringType
+
+def range_category(var):
+    if var > 1:
+        return "High"
+    elif var >= 0.5 and var <= 1:
+        return "Medium"
+    else:
+        return "Low"
+
+range_category_udf = udf(range_category, StringType())
+
+df_temp = all_stocks_5yr.\
+    withColumn("range", round(col("high") - col("low"), 2)).\
+    withColumn("range_ind", when(col("range") > 1, "High").\
+               when((col("range") <= 1) & (col("range") >= 0.5), "Medium").otherwise("Low")).\
+    withColumn("range_ind_udf", range_category_udf(col("range")))
+df_temp.show(5)
+
+# ============================================================================ #
+# Check number of partitions
+# ============================================================================ #
+num_partitions = df_temp.rdd.getNumPartitions()
+print(f"Number of partitions: {num_partitions}")
