@@ -24,7 +24,8 @@
 # ============================================================================ #
 
 from pyspark.sql.functions import col, to_date, year, lower, lit, substring, \
-    weekofyear, date_add, next_day, round, when, regexp_replace, avg, max, upper
+    weekofyear, date_add, next_day, round, when, regexp_replace, avg, max, upper, \
+    expr
 
 # ============================================================================ #
 # Create spark DataFrame
@@ -274,3 +275,31 @@ df_temp.show(5)
 # ============================================================================ #
 num_partitions = df_temp.rdd.getNumPartitions()
 print(f"Number of partitions: {num_partitions}")
+
+
+
+# ============================================================================ #
+# Pivot Longer
+# ============================================================================ #
+
+from pyspark.sql import functions as F
+
+id_columns = ["date", "Name"]
+# Dynamically retrieve the value columns to be unpivoted
+value_columns = [col for col in all_stocks_5yr.columns if col not in id_columns]
+# Number of columns to stack
+n_cols = len(value_columns)
+# Dynamically build the stack expression
+stack_expr = f"stack({n_cols}, " + ", ".join([f"'{col}', {col}" for col in value_columns]) + ") as (Metric, Value)"
+
+unPivotDF = all_stocks_5yr.\
+    withColumn("volume", col("volume").cast("double")).\
+    select(*id_columns, F.expr(stack_expr))
+unPivotDF.show(5)
+
+# ============================================================================ #
+# Pivot wider
+# ============================================================================ #
+
+pivotDF = unPivotDF.groupBy("date", "Name").pivot("Metric").sum("Value")
+pivotDF.show(5)
