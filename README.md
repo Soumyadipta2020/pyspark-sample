@@ -5,4 +5,4 @@
 ![GitHub license](https://img.shields.io/github/license/Soumyadipta2020/pyspark-sample)
 [![HitCount](https://hits.dwyl.com/Soumyadipta2020/pyspark-sample.svg?style=flat-square)](http://hits.dwyl.com/Soumyadipta2020/pyspark-sample)
 
-Sample PySpark codes
+Sample PySpark code examples
