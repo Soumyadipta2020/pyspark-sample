@@ -276,25 +276,27 @@ df_temp.show(5)
 num_partitions = df_temp.rdd.getNumPartitions()
 print(f"Number of partitions: {num_partitions}")
 
-
-
 # ============================================================================ #
 # Pivot Longer
 # ============================================================================ #
 
-from pyspark.sql import functions as F
+# Pivot longer function
+def pivot_longer(df, id_cols, names_to, values_to):
+    from pyspark.sql import functions as F
+    id_columns = id_cols
+    # Dynamically retrieve the value columns to be unpivoted
+    value_columns = [col for col in df.columns if col not in id_columns]
+    # Number of columns to stack
+    n_cols = len(value_columns)
+    # Dynamically build the stack expression
+    stack_expr = f"stack({n_cols}, " + ", ".join([f"'{col}', {col}" for col in value_columns]) + ") as (" + names_to + "," + values_to + ")"
+    df = df.select(*id_columns, F.expr(stack_expr))
+    return df
 
-id_columns = ["date", "Name"]
-# Dynamically retrieve the value columns to be unpivoted
-value_columns = [col for col in all_stocks_5yr.columns if col not in id_columns]
-# Number of columns to stack
-n_cols = len(value_columns)
-# Dynamically build the stack expression
-stack_expr = f"stack({n_cols}, " + ", ".join([f"'{col}', {col}" for col in value_columns]) + ") as (Metric, Value)"
-
+# Pivot longer implementation
 unPivotDF = all_stocks_5yr.\
-    withColumn("volume", col("volume").cast("double")).\
-    select(*id_columns, F.expr(stack_expr))
+    withColumn("volume", col("volume").cast("double"))
+unPivotDF = pivot_longer(unPivotDF, ["date", "Name"], "Metric", "Value")
 unPivotDF.show(5)
 
 # ============================================================================ #
@@ -303,3 +305,43 @@ unPivotDF.show(5)
 
 pivotDF = unPivotDF.groupBy("date", "Name").pivot("Metric").sum("Value")
 pivotDF.show(5)
+
+# ============================================================================ #
+# Apply same function to all numeric columns
+# ============================================================================ #
+
+# Define apply function for implementation 
+from pyspark.sql import DataFrame
+from pyspark.sql.functions import col
+from typing import List
+
+def apply_function_to_numeric_columns(
+    df: DataFrame,
+    function, 
+    *args, 
+    **kwargs) -> DataFrame:
+    """
+    Applies a given function to all numeric columns in a PySpark DataFrame.
+    Args:
+        df (DataFrame): The input PySpark DataFrame.
+        function: The function to apply to the numeric columns.
+        *args: Additional positional arguments to pass to the function.
+        **kwargs: Additional keyword arguments to pass to the function.
+    Returns:
+        DataFrame: The PySpark DataFrame with the function applied to the 
+                   numeric columns.
+    """
+    numeric_cols = [
+        c for c, t in df.dtypes if t in ["int", "double", "float", "long"]
+    ]
+    for column in numeric_cols:
+        df = df.withColumn(column, function(col(column), *args, **kwargs))
+    return df
+
+# Function to apply
+def add_one(x):
+    return x/100
+
+# Implementation
+df_modified = apply_function_to_numeric_columns(pivotDF, add_one)
+df_modified.show(5)
