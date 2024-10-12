@@ -25,7 +25,7 @@
 
 from pyspark.sql.functions import col, to_date, year, lower, lit, substring, \
     weekofyear, date_add, next_day, round, when, regexp_replace, avg, max, upper, \
-    expr
+    expr, monotonically_increasing_id
 
 # ============================================================================ #
 # Create spark DataFrame
@@ -345,3 +345,52 @@ def add_one(x):
 # Implementation
 df_modified = apply_function_to_numeric_columns(pivotDF, add_one)
 df_modified.show(5)
+
+# ============================================================================ #
+# Row bind
+# ============================================================================ #
+
+# Sample DataFrames
+df1 = spark.createDataFrame(
+    [("sue", 32), ("li", 3), ("bob", 75)], ["first_name", "age"]
+)
+
+df2 = spark.createDataFrame(
+    [("joe", 45), ("amy", 28)], ["first_name", "age"]
+)
+
+# Union the DataFrames
+df_combined = df1.union(df2)
+df_combined.show(5)
+
+# ============================================================================ #
+# Column bind
+# ============================================================================ #
+
+# Sample DataFrames (Assuming they have the same number of rows)
+df1 = spark.createDataFrame(
+    [("sue", 32), ("li", 3), ("bob", 75)], ["first_name", "age"]
+)
+
+df2 = spark.createDataFrame(
+    [("CA", 94105), ("NY", 10001), ("FL", 33133)], ["state", "zip"]
+)
+
+# Add a temporary index column to both DataFrames
+df1 = df1.withColumn("index", monotonically_increasing_id())
+df2 = df2.withColumn("index", monotonically_increasing_id())
+
+# Join the DataFrames based on the temporary index
+df_combined = df1.join(df2, on="index", how="inner").drop("index")
+df_combined.show(5)
+
+
+# ============================================================================ #
+# Summarise all
+# ============================================================================ #
+
+df_temp = all_stocks_5yr.drop('date')
+df_temp = df_temp.groupBy('Name').agg(
+    *[max(c).alias(f"{c}") for c in df_temp.columns if c != 'Name']
+)
+df_temp.show(5)
