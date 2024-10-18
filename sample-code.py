@@ -394,3 +394,34 @@ df_temp = df_temp.groupBy('Name').agg(
     *[max(c).alias(f"{c}") for c in df_temp.columns if c != 'Name']
 )
 df_temp.show(5)
+
+# ============================================================================ #
+# Clean column names
+# ============================================================================ #
+
+def clean_column_names(name):
+    answer = name
+    cleaning_dictionary = [
+        (" ", "-"),
+        ("-", "_"),
+        ("/", "_"),
+        ("&", "and"),
+    ]
+    for before, after in cleaning_dictionary:
+        answer = answer.replace(before, after)
+    return "".join(
+        [char for char in answer if char.isalpha() or char.isdigit() or char == "_"]
+    )
+
+df_test = spark.createDataFrame(
+    [
+        ("sue", 32, 78),
+        ("li", 3, 96),
+        ("bob", 75, 45),
+        ("heo", None, 31),
+    ],
+    ["first name", "age-", "score & relation"],
+).repartition(2)
+
+df_test = df_test.toDF(*[clean_column_names(name) for name in df_test.columns])
+df_test.columns
