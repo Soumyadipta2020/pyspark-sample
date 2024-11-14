@@ -281,17 +281,31 @@ print(f"Number of partitions: {num_partitions}")
 # ============================================================================ #
 
 # Pivot longer function
+
+# def pivot_longer(df, id_cols, names_to, values_to):
+#     from pyspark.sql import functions as F
+#     id_columns = id_cols
+#     # Dynamically retrieve the value columns to be unpivoted
+#     value_columns = [col for col in df.columns if col not in id_columns]
+#     # Number of columns to stack
+#     n_cols = len(value_columns)
+#     # Dynamically build the stack expression
+#     stack_expr = f"stack({n_cols}, " + ", ".join([f"'{col}', {col}" for col in value_columns]) + ") as (" + names_to + "," + values_to + ")"
+#     df = df.select(*id_columns, F.expr(stack_expr))
+#     return df
+
 def pivot_longer(df, id_cols, names_to, values_to):
     from pyspark.sql import functions as F
+    from functools import reduce
+    from pyspark.sql import DataFrame
     id_columns = id_cols
     # Dynamically retrieve the value columns to be unpivoted
     value_columns = [col for col in df.columns if col not in id_columns]
-    # Number of columns to stack
-    n_cols = len(value_columns)
-    # Dynamically build the stack expression
-    stack_expr = f"stack({n_cols}, " + ", ".join([f"'{col}', {col}" for col in value_columns]) + ") as (" + names_to + "," + values_to + ")"
-    df = df.select(*id_columns, F.expr(stack_expr))
-    return df
+    long_df = [
+        df.select(*id_columns, F.lit(col).alias(names_to), F.col(col).alias(values_to))
+        for col in value_columns
+    ]
+    return reduce(DataFrame.unionAll, long_df)
 
 # Pivot longer implementation
 unPivotDF = all_stocks_5yr.\
